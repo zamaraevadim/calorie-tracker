@@ -17,10 +17,10 @@ async function initDB() {
 async function initApp() {
     try {
         await initDB();
-        loadLocalData();
+        window.loadLocalData();
         
         // Заполняем форму настроек текущими значениями
-        const goals = getSettings().dailyGoals;
+        const goals = window.getSettings().dailyGoals;
         document.getElementById('goal-calories').value = goals.calories;
         document.getElementById('goal-protein').value = goals.protein;
         document.getElementById('goal-fat').value = goals.fat;
@@ -31,12 +31,12 @@ async function initApp() {
         document.getElementById('app-page').style.display = 'block';
         
         // Отрисовываем дневник
-        renderDiary();
+        window.renderDiary();
         
         setupEventListeners();
     } catch (error) {
         console.error('Init error:', error);
-        showToast('Ошибка загрузки приложения', 'error');
+        window.showToast('Ошибка загрузки приложения', 'error');
     }
 }
 
@@ -45,12 +45,12 @@ function setupEventListeners() {
     // Навигация
     document.querySelectorAll('.nav-item').forEach(item => {
         item.addEventListener('click', () => {
-            switchPage(item.dataset.page);
+            window.switchPage(item.dataset.page);
         });
     });
     
     document.getElementById('settings-btn').addEventListener('click', () => {
-        switchPage('settings');
+        window.switchPage('settings');
     });
     
     // Переключение дней
@@ -58,20 +58,20 @@ function setupEventListeners() {
         const date = new Date(currentViewDate);
         date.setDate(date.getDate() - 1);
         currentViewDate = date.toISOString().split('T')[0];
-        renderDiary();
+        window.renderDiary();
     });
     
     document.getElementById('next-day-btn').addEventListener('click', () => {
         const date = new Date(currentViewDate);
         date.setDate(date.getDate() + 1);
         currentViewDate = date.toISOString().split('T')[0];
-        renderDiary();
+        window.renderDiary();
     });
     
     // Поиск
-    document.getElementById('search-btn').addEventListener('click', handleSearch);
+    document.getElementById('search-btn').addEventListener('click', window.handleSearch);
     document.getElementById('product-search-input').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') handleSearch();
+        if (e.key === 'Enter') window.handleSearch();
     });
     
     // Добавление приёма пищи
@@ -85,7 +85,7 @@ function setupEventListeners() {
     
     document.getElementById('add-from-products-btn').addEventListener('click', () => {
         document.getElementById('add-meal-modal').style.display = 'none';
-        switchPage('products');
+        window.switchPage('products');
     });
     
     document.getElementById('add-custom-food-btn').addEventListener('click', () => {
@@ -104,15 +104,15 @@ function setupEventListeners() {
         document.getElementById('add-product-modal').style.display = 'none';
     });
     
-    document.getElementById('portion-grams').addEventListener('input', updatePortionNutrients);
+    document.getElementById('portion-grams').addEventListener('input', window.updatePortionNutrients);
     
     document.getElementById('confirm-add-product-btn').addEventListener('click', () => {
         const grams = parseInt(document.getElementById('portion-grams').value) || 100;
         const mealType = document.getElementById('meal-type-select').value;
         
-        addMealEntry(currentViewDate, mealType, selectedProduct, grams);
+        window.addMealEntry(currentViewDate, mealType, selectedProduct, grams);
         document.getElementById('add-product-modal').style.display = 'none';
-        switchPage('diary');
+        window.switchPage('diary');
     });
     
     // Создание своего продукта
@@ -132,13 +132,13 @@ function setupEventListeners() {
         const weight = parseFloat(document.getElementById('weight-value').value);
         
         if (!date || !weight) {
-            showToast('Введите дату и вес', 'warning');
+            window.showToast('Введите дату и вес', 'warning');
             return;
         }
         
-        addWeightEntry(date, weight);
+        window.addWeightEntry(date, weight);
         document.getElementById('weight-modal').style.display = 'none';
-        showToast('Вес сохранён', 'success');
+        window.showToast('Вес сохранён', 'success');
     });
     
     // Сохранение целей
@@ -158,7 +158,7 @@ function setupEventListeners() {
             tab.classList.add('active');
             
             const activeMetric = document.querySelector('.metric-btn.active')?.dataset.metric || 'calories';
-            renderStats(tab.dataset.period, activeMetric);
+            window.renderStats(tab.dataset.period, activeMetric);
         });
     });
     
@@ -169,7 +169,7 @@ function setupEventListeners() {
             btn.classList.add('active');
             
             const activePeriod = document.querySelector('.stats-tab.active')?.dataset.period || 'week';
-            renderStats(activePeriod, btn.dataset.metric);
+            window.renderStats(activePeriod, btn.dataset.metric);
         });
     });
 }
@@ -181,21 +181,18 @@ function saveGoals() {
     const fat = parseFloat(document.getElementById('goal-fat').value) || 0;
     const carbs = parseFloat(document.getElementById('goal-carbs').value) || 0;
     
-    // Определяем режим: если калории не введены или равны 0, считаем из БЖУ
-    // Если введены и калории и БЖУ, подгоняем БЖУ под калории
-    const adjustedGoals = validateAndAdjustGoals({ calories, protein, fat, carbs }, 'auto');
+    const adjustedGoals = window.validateAndAdjustGoals({ calories, protein, fat, carbs }, 'auto');
     
-    const newSettings = getSettings();
+    const newSettings = window.getSettings();
     newSettings.dailyGoals = adjustedGoals;
-    saveSettings(newSettings);
+    window.saveSettings(newSettings);
     
-    // Обновляем поля формы скорректированными значениями
     document.getElementById('goal-calories').value = adjustedGoals.calories;
     document.getElementById('goal-protein').value = adjustedGoals.protein;
     document.getElementById('goal-fat').value = adjustedGoals.fat;
     document.getElementById('goal-carbs').value = adjustedGoals.carbs;
     
-    showToast('Цели сохранены', 'success');
+    window.showToast('Цели сохранены', 'success');
 }
 
 // Сохранение своего продукта
@@ -208,7 +205,7 @@ function saveCustomProduct() {
     const carbs = parseFloat(document.getElementById('custom-carbs').value) || 0;
     
     if (!name) {
-        showToast('Введите название продукта', 'warning');
+        window.showToast('Введите название продукта', 'warning');
         return;
     }
     
@@ -217,17 +214,16 @@ function saveCustomProduct() {
         name,
         brand: brand || '',
         caloriesPer100g: Math.round(calories),
-        proteinPer100g: roundTo(protein),
-        fatPer100g: roundTo(fat),
-        carbsPer100g: roundTo(carbs),
+        proteinPer100g: window.roundTo(protein),
+        fatPer100g: window.roundTo(fat),
+        carbsPer100g: window.roundTo(carbs),
         barcode: `local_${Date.now()}`,
         source: 'local'
     };
     
-    addLocalProduct(product);
+    window.addLocalProduct(product);
     document.getElementById('custom-food-modal').style.display = 'none';
     
-    // Очищаем форму
     document.getElementById('custom-name').value = '';
     document.getElementById('custom-brand').value = '';
     document.getElementById('custom-calories').value = '';
@@ -235,12 +231,12 @@ function saveCustomProduct() {
     document.getElementById('custom-fat').value = '';
     document.getElementById('custom-carbs').value = '';
     
-    showToast('Продукт сохранён', 'success');
+    window.showToast('Продукт сохранён', 'success');
 }
 
 // Экспорт данных
 function exportData() {
-    const data = exportAllData();
+    const data = window.exportAllData();
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -248,7 +244,7 @@ function exportData() {
     a.download = `nutritrack_backup_${new Date().toISOString().split('T')[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    showToast('Данные экспортированы', 'success');
+    window.showToast('Данные экспортированы', 'success');
 }
 
 // Импорт данных
@@ -260,19 +256,18 @@ function importData(event) {
     reader.onload = (e) => {
         try {
             const data = JSON.parse(e.target.result);
-            importAllData(data);
-            showToast('Данные импортированы', 'success');
+            window.importAllData(data);
+            window.showToast('Данные импортированы', 'success');
             
-            // Обновляем форму настроек
-            const goals = getSettings().dailyGoals;
+            const goals = window.getSettings().dailyGoals;
             document.getElementById('goal-calories').value = goals.calories;
             document.getElementById('goal-protein').value = goals.protein;
             document.getElementById('goal-fat').value = goals.fat;
             document.getElementById('goal-carbs').value = goals.carbs;
             
-            renderDiary();
+            window.renderDiary();
         } catch (error) {
-            showToast('Ошибка импорта: неверный формат файла', 'error');
+            window.showToast('Ошибка импорта: неверный формат файла', 'error');
         }
     };
     reader.readAsText(file);
