@@ -1,6 +1,7 @@
 // ==================== Конфигурация ====================
 const API_BASE = 'https://world.openfoodfacts.org';
 const SEARCH_DELAY_MS = 6000; // 6 секунд между поисковыми запросами
+const USE_CORS_PROXY = false; // Можно включить прокси если CORS всё ещё блокируется
 
 const STORAGE_KEYS = {
     USER_SETTINGS: 'nutritrack_settings',
@@ -130,52 +131,80 @@ async function searchProducts(query) {
     
     // Затем ищем в API (используем v1 search.pl для полнотекстового поиска)
     try {
-        const response = await fetch(
-            `${API_BASE}/cgi/search.pl?search_terms=${encodeURIComponent(query)}&json=1&page=1&page_size=20`,
-            {
+        const url = `${API_BASE}/cgi/search.pl?search_terms=${encodeURIComponent(query)}&json=1&page=1&page_size=20`;
+        
+        // Пробуем прямой запрос, если не работает - используем CORS-прокси
+        let response;
+        try {
+            response = await fetch(url, {
                 method: 'GET',
                 headers: {
                     'Accept': 'application/json',
                     'User-Agent': 'NutriTrack/1.0 (contact@nutritrack.app)'
+                },
+                mode: 'cors'
+            });
+        } catch (corsError) {
+            // Если CORS ошибка, используем прокси
+            console.log('CORS error detected, using proxy...');
+            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+            response = await fetch(proxyUrl, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json'
                 }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Proxy HTTP error! status: ${response.status}`);
             }
-        );
+            
+            const proxyData = await response.json();
+            // allorigins возвращает содержимое в поле contents как строку
+            const data = JSON.parse(proxyData.contents || '{}');
+            return processApiResults(data, localResults);
+        }
         
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         
         const data = await response.json();
-        const apiResults = (data.products || []).map(p => ({
-            id: `off_${p.code}`,
-            name: p.product_name || 'Без названия',
-            brand: p.brands || '',
-            caloriesPer100g: Math.round(p.nutriments?.['energy-kcal_100g'] || 0),
-            proteinPer100g: Math.round((p.nutriments?.proteins_100g || 0) * 10) / 10,
-            fatPer100g: Math.round((p.nutriments?.fat_100g || 0) * 10) / 10,
-            carbsPer100g: Math.round((p.nutriments?.carbohydrates_100g || 0) * 10) / 10,
-            barcode: p.code || '',
-            source: 'openfoodfacts',
-            openfoodfactsId: p.code
-        })).filter(p => p.caloriesPer100g > 0);
-        
-        // Сохраняем новые продукты в кэш
-        for (const product of apiResults) {
-            const exists = localProducts.some(p => p.barcode === product.barcode);
-            if (!exists) {
-                localProducts.push(product);
-                await db.products.put(product);
-            }
-        }
-        saveLocalData();
-        
-        // Объединяем результаты: сначала локальные, потом из API
-        return [...localResults, ...apiResults.filter(p => !localResults.some(l => l.barcode === p.barcode))];
+        return processApiResults(data, localResults);
     } catch (error) {
         console.error('Search error:', error);
         showToast('Ошибка поиска. Проверьте интернет.', 'error');
         return localResults;
     }
+}
+
+// ==================== Обработка результатов API ====================
+function processApiResults(data, localResults) {
+    const apiResults = (data.products || []).map(p => ({
+        id: `off_${p.code}`,
+        name: p.product_name || 'Без названия',
+        brand: p.brands || '',
+        caloriesPer100g: Math.round(p.nutriments?.['energy-kcal_100g'] || 0),
+        proteinPer100g: Math.round((p.nutriments?.proteins_100g || 0) * 10) / 10,
+        fatPer100g: Math.round((p.nutriments?.fat_100g || 0) * 10) / 10,
+        carbsPer100g: Math.round((p.nutriments?.carbohydrates_100g || 0) * 10) / 10,
+        barcode: p.code || '',
+        source: 'openfoodfacts',
+        openfoodfactsId: p.code
+    })).filter(p => p.caloriesPer100g > 0);
+    
+    // Сохраняем новые продукты в кэш
+    for (const product of apiResults) {
+        const exists = localProducts.some(p => p.barcode === product.barcode);
+        if (!exists) {
+            localProducts.push(product);
+            if (db) db.products.put(product);
+        }
+    }
+    saveLocalData();
+    
+    // Объединяем результаты: сначала локальные, потом из API
+    return [...localResults, ...apiResults.filter(p => !localResults.some(l => l.barcode === p.barcode))];
 }
 
 // ==================== Дневник питания ====================
