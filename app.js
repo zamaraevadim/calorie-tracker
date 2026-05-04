@@ -765,10 +765,36 @@ function setupEventListeners() {
     });
     
     document.getElementById('save-goals-btn').addEventListener('click', () => {
-        settings.dailyGoals.calories = parseInt(document.getElementById('goal-calories').value) || 2200;
-        settings.dailyGoals.protein = parseInt(document.getElementById('goal-protein').value) || 150;
-        settings.dailyGoals.fat = parseInt(document.getElementById('goal-fat').value) || 70;
-        settings.dailyGoals.carbs = parseInt(document.getElementById('goal-carbs').value) || 250;
+        let calories = parseInt(document.getElementById('goal-calories').value) || 2200;
+        let protein = parseInt(document.getElementById('goal-protein').value) || 150;
+        let fat = parseInt(document.getElementById('goal-fat').value) || 70;
+        let carbs = parseInt(document.getElementById('goal-carbs').value) || 250;
+        
+        // Валидация: проверяем, что БЖУ не превышают общую калорийность
+        // 1г белка = 4 ккал, 1г жира = 9 ккал, 1г углеводов = 4 ккал
+        const caloriesFromMacros = (protein * 4) + (fat * 9) + (carbs * 4);
+        
+        if (caloriesFromMacros > calories) {
+            // БЖУ превышают общую калорийность - масштабируем пропорционально
+            const scale = calories / caloriesFromMacros;
+            protein = Math.round(protein * scale);
+            fat = Math.round(fat * scale);
+            carbs = Math.round(carbs * scale);
+            
+            showToast('Цели скорректированы: БЖУ превышали общую калорийность', 'warning');
+        } else if (caloriesFromMacros < calories * 0.85) {
+            // Если БЖУ составляют менее 85% от калорий - предупреждаем
+            // Это может означать, что пользователь забыл ввести что-то
+            const remainingCalories = calories - caloriesFromMacros;
+            if (remainingCalories > 300) {
+                showToast(`Внимание: ${remainingCalories} ккал не распределены между БЖУ`, 'warning');
+            }
+        }
+        
+        settings.dailyGoals.calories = calories;
+        settings.dailyGoals.protein = protein;
+        settings.dailyGoals.fat = fat;
+        settings.dailyGoals.carbs = carbs;
         
         saveLocalData();
         showToast('Цели сохранены', 'success');
