@@ -1,75 +1,95 @@
-// ==================== api.js - Работа с Open Food Facts API ====================
+// js/api.js
 
-const API_BASE = 'https://world.openfoodfacts.org';
-const SEARCH_DELAY_MS = 4000; // 4 секунды между поисковыми запросами
+const PROXY_URL = 'https://api.allorigins.win/get?url=';
+const BASE_URL = 'https://world.openfoodfacts.org';
 
-let lastSearchTime = 0;
-
-// Поиск продуктов
-async function searchProducts(query) {
-    const now = Date.now();
-    if (now - lastSearchTime < SEARCH_DELAY_MS) {
-        const waitTime = Math.ceil((SEARCH_DELAY_MS - (now - lastSearchTime)) / 1000);
-        showToast(`Подождите ${waitTime} сек перед следующим поиском`, 'warning');
-        return [];
+/**
+ * Поиск продуктов по названию
+ */
+export async function searchProducts(query, page = 1, pageSize = 20) {
+    if (!query || query.trim() === '') {
+        throw new Error('Поисковый запрос пуст');
     }
 
-    lastSearchTime = now;
+    // Используем API v2 search с правильными параметрами
+    const encodedQuery = encodeURIComponent(query.trim());
+    const targetUrl = `${BASE_URL}/cgi/search.pl?search_terms=${encodedQuery}&json=true&page=${page}&page_size=${pageSize}`;
+    
+    // Формируем URL для прокси allorigins
+    const proxyUrl = `${PROXY_URL}${encodeURIComponent(targetUrl)}`;
 
-    // Сначала ищем локально
-    const localResults = searchLocalProducts(query).map(p => ({ ...p, source: 'local' }));
+    console.log('Fetching via proxy:', proxyUrl);
 
-    // Затем ищем в API через прокси для обхода CORS
     try {
-        // Используем старый надежный эндпоинт search.pl
-        const url = `${API_BASE}/cgi/search.pl?search_terms=${encodeURIComponent(query)}&json=true&page=1&page_size=20`;
-
-        // Используем прокси thingproxy
-        const proxyUrl = `https://thingproxy.freeboard.io/fetch/${encodeURIComponent(url)}`;
-
-        console.log('Запрос к API через прокси:', proxyUrl);
-
-        const response = await fetch(proxyUrl, {
-            method: 'GET',
-            headers: {
-                'Accept': 'application/json',
-                'User-Agent': 'NutriTrack-CalorieTracker/1.0 (Contact: developer@example.com)'
-            }
-        });
-
+        const response = await fetch(proxyUrl);
+        
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
         const data = await response.json();
-        return processApiResults(data, localResults);
+        
+        // allorigins возвращает данные в поле "contents" как строку, её нужно распарсить
+        if (!data.contents) {
+            throw new Error('Пустой ответ от прокси');
+        }
+
+        const productData = JSON.parse(data.contents);
+
+        if (!productData.products || productData.products.length === 0) {
+            return [];
+        }
+
+        return productData.products.map(product => ({
+            id: product.code,
+            name: product.product_name || 'Без названия',
+            brand: product.brands || '',
+            image: product.image_small_url || product.image_front_small_url || null,
+            nutriments: product.nutriments || {},
+            nutriscore: product.nutriscore_grade || null,
+            novaGroup: product.nova_group || null
+        }));
+
     } catch (error) {
         console.error('Search error:', error);
-        showToast('Ошибка поиска. Попробуйте позже или добавьте продукт вручную.', 'error');
-        return localResults;
+        throw error;
     }
 }
 
-// Обработка результатов API
-function processApiResults(data, localResults) {
-    const apiResults = (data.products || []).map(p => ({
-        id: `off_${p.code}`,
-        name: p.product_name || 'Без названия',
-        brand: p.brands || '',
-        caloriesPer100g: Math.round(p.nutriments?.['energy-kcal_100g'] || 0),
-        proteinPer100g: Math.round((p.nutriments?.proteins_100g || 0) * 10) / 10,
-        fatPer100g: Math.round((p.nutriments?.fat_100g || 0) * 10) / 10,
-        carbsPer100g: Math.round((p.nutriments?.carbohydrates_100g || 0) * 10) / 10,
-        barcode: p.code || '',
-        source: 'openfoodfacts',
-        openfoodfactsId: p.code
-    })).filter(p => p.caloriesPer100g > 0);
+/**
+ * Получение данных о продукте по штрих-коду
+ */
+export async function getProductByBarcode(barcode) {
+    const targetUrl = `${BASE_URL}/api/v2/product/${barcode}.json`;
+    const proxyUrl = `${PROXY_URL}${encodeURIComponent(targetUrl)}`;
 
-    // Сохраняем новые продукты в кэш
-    for (const product of apiResults) {
-        addLocalProduct(product);
+    try {
+        const response = await fetch(proxyUrl);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const productData = JSON.parse(data.contents);
+
+        if (productData.status !== 1) {
+            throw new Error('Продукт не найден');
+        }
+
+        const product = productData.product;
+        return {
+            id: product.code,
+            name: product.product_name || 'Без названия',
+            brand: product.brands || '',
+            image: product.image_small_url || product.image_front_small_url || null,
+            nutriments: product.nutriments || {},
+            nutriscore: product.nutriscore_grade || null,
+            novaGroup: product.nova_group || null,
+            barcode: product.code
+        };
+
+    } catch (error) {
+        console.error('Get product error:', error);
+        throw error;
     }
-
-    // Объединяем результаты
-    return [...localResults, ...apiResults.filter(p => !localResults.some(l => l.barcode === p.barcode))];
 }
