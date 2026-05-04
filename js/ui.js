@@ -11,7 +11,7 @@ let chartInstance = null;
 let selectedProduct = null;
 
 // Toast уведомления
-function showToast(message, type = 'info') {
+window.showToast = function(message, type = 'info') {
     const existingToast = document.querySelector('.toast');
     if (existingToast) existingToast.remove();
     
@@ -25,20 +25,20 @@ function showToast(message, type = 'info') {
         toast.classList.remove('show');
         setTimeout(() => toast.remove(), 300);
     }, 3000);
-}
+};
 
 // Обновление отображения даты
-function updateDateDisplay() {
+window.updateDateDisplay = function() {
     document.getElementById('current-date-display').textContent = 
-        `${getDayName(currentViewDate)}, ${formatDate(currentViewDate)}`;
-}
+        `${window.getDayName(window.currentViewDate)}, ${window.formatDate(window.currentViewDate)}`;
+};
 
 // Отрисовка дневника
-function renderDiary() {
-    updateDateDisplay();
+window.renderDiary = function() {
+    window.updateDateDisplay();
     
-    const totals = calculateDailyTotals(currentViewDate);
-    const goals = getSettings().dailyGoals;
+    const totals = window.calculateDailyTotals(window.currentViewDate);
+    const goals = window.getSettings().dailyGoals;
     
     // Круговой прогресс калорий
     const caloriesPercent = Math.min((totals.calories / goals.calories) * 100, 100);
@@ -59,20 +59,20 @@ function renderDiary() {
     document.getElementById('calories-goal').textContent = goals.calories;
     
     // Макронутриенты
-    document.getElementById('protein-consumed').textContent = roundTo(totals.protein);
+    document.getElementById('protein-consumed').textContent = window.roundTo(totals.protein);
     document.getElementById('protein-goal').textContent = goals.protein;
     document.getElementById('protein-bar').style.width = `${Math.min((totals.protein / goals.protein) * 100, 100)}%`;
     
-    document.getElementById('fat-consumed').textContent = roundTo(totals.fat);
+    document.getElementById('fat-consumed').textContent = window.roundTo(totals.fat);
     document.getElementById('fat-goal').textContent = goals.fat;
     document.getElementById('fat-bar').style.width = `${Math.min((totals.fat / goals.fat) * 100, 100)}%`;
     
-    document.getElementById('carbs-consumed').textContent = roundTo(totals.carbs);
+    document.getElementById('carbs-consumed').textContent = window.roundTo(totals.carbs);
     document.getElementById('carbs-goal').textContent = goals.carbs;
     document.getElementById('carbs-bar').style.width = `${Math.min((totals.carbs / goals.carbs) * 100, 100)}%`;
     
     // Приёмы пищи
-    const log = getDailyLog(currentViewDate);
+    const log = window.getDailyLog(window.currentViewDate);
     const mealsList = document.getElementById('meals-list');
     
     if (log.meals.length === 0) {
@@ -107,28 +107,28 @@ function renderDiary() {
                 </div>
                 <div class="meal-nutrients">
                     <span>${Math.round(meal.calories)} ккал</span>
-                    <span>Б: ${roundTo(meal.protein)}г</span>
-                    <span>Ж: ${roundTo(meal.fat)}г</span>
-                    <span>У: ${roundTo(meal.carbs)}г</span>
+                    <span>Б: ${window.roundTo(meal.protein)}г</span>
+                    <span>Ж: ${window.roundTo(meal.fat)}г</span>
+                    <span>У: ${window.roundTo(meal.carbs)}г</span>
                 </div>
                 <button class="delete-meal-btn" data-index="${log.meals.indexOf(meal)}"><i class="fas fa-trash"></i></button>
             `;
             
             mealCard.querySelector('.delete-meal-btn').addEventListener('click', () => {
-                removeMealEntry(currentViewDate, log.meals.indexOf(meal));
-                renderDiary();
+                window.removeMealEntry(window.currentViewDate, log.meals.indexOf(meal));
+                window.renderDiary();
             });
             
             mealsList.appendChild(mealCard);
         }
     }
-}
+};
 
 // Обработка поиска UI
-async function handleSearch() {
+window.handleSearch = async function() {
     const query = document.getElementById('product-search-input').value.trim();
     if (!query) {
-        showToast('Введите название продукта', 'warning');
+        window.showToast('Введите название продукта', 'warning');
         return;
     }
     
@@ -137,10 +137,10 @@ async function handleSearch() {
     
     let results = [];
     try {
-        results = await searchProducts(query);
+        results = await window.searchProducts(query);
     } catch (error) {
         console.error('Search failed:', error);
-        showToast('Ошибка сети. Попробуйте позже.', 'error');
+        window.showToast('Ошибка сети. Попробуйте позже.', 'error');
     }
     
     document.getElementById('search-loading').style.display = 'none';
@@ -161,7 +161,7 @@ async function handleSearch() {
                 ${product.brand ? `<div class="product-brand">${product.brand}</div>` : ''}
                 <div class="product-calories">${Math.round(product.caloriesPer100g)} ккал / 100г</div>
                 <div class="product-macros">
-                    Б: ${roundTo(product.proteinPer100g)}г | Ж: ${roundTo(product.fatPer100g)}г | У: ${roundTo(product.carbsPer100g)}г
+                    Б: ${window.roundTo(product.proteinPer100g)}г | Ж: ${window.roundTo(product.fatPer100g)}г | У: ${window.roundTo(product.carbsPer100g)}г
                 </div>
                 ${product.source === 'local' ? '<span class="badge-local">Локально</span>' : ''}
             </div>
@@ -169,48 +169,48 @@ async function handleSearch() {
         `;
         
         card.querySelector('.add-product-btn').addEventListener('click', () => {
-            showAddProductModal(product);
+            window.showAddProductModal(product);
         });
         
         resultsContainer.appendChild(card);
     }
-}
+};
 
 // Показать модальное окно добавления продукта
-function showAddProductModal(product) {
+window.showAddProductModal = function(product) {
     selectedProduct = product;
     
     document.getElementById('modal-product-info').innerHTML = `
         <strong>${product.name}</strong><br>
         ${product.brand ? product.brand + '<br>' : ''}
-        <small>${Math.round(product.caloriesPer100g)} ккал, Б: ${roundTo(product.proteinPer100g)}г, 
-        Ж: ${roundTo(product.fatPer100g)}г, У: ${roundTo(product.carbsPer100g)}г (на 100г)</small>
+        <small>${Math.round(product.caloriesPer100g)} ккал, Б: ${window.roundTo(product.proteinPer100g)}г, 
+        Ж: ${window.roundTo(product.fatPer100g)}г, У: ${window.roundTo(product.carbsPer100g)}г (на 100г)</small>
     `;
     
     document.getElementById('portion-grams').value = 100;
-    updatePortionNutrients();
+    window.updatePortionNutrients();
     
     document.getElementById('add-product-modal').style.display = 'flex';
-}
+};
 
 // Обновление КБЖУ порции
-function updatePortionNutrients() {
+window.updatePortionNutrients = function() {
     if (!selectedProduct) return;
     
     const grams = parseInt(document.getElementById('portion-grams').value) || 0;
-    const nutrients = calculatePortionNutrients(selectedProduct, grams);
+    const nutrients = window.calculatePortionNutrients(selectedProduct, grams);
     
     document.getElementById('portion-nutrients').innerHTML = `
         <strong>На порцию (${grams}г):</strong><br>
         ${Math.round(nutrients.calories)} ккал | 
-        Б: ${roundTo(nutrients.protein)}г | 
-        Ж: ${roundTo(nutrients.fat)}г | 
-        У: ${roundTo(nutrients.carbs)}г
+        Б: ${window.roundTo(nutrients.protein)}г | 
+        Ж: ${window.roundTo(nutrients.fat)}г | 
+        У: ${window.roundTo(nutrients.carbs)}г
     `;
-}
+};
 
 // Отрисовка статистики
-function renderStats(period = 'week', metric = 'calories') {
+window.renderStats = function(period = 'week', metric = 'calories') {
     const ctx = document.getElementById('stats-chart');
     if (!ctx) return;
     
@@ -230,16 +230,16 @@ function renderStats(period = 'week', metric = 'calories') {
         const date = new Date(now);
         date.setDate(date.getDate() - i);
         const dateStr = date.toISOString().split('T')[0];
-        labels.push(formatDate(dateStr));
+        labels.push(window.formatDate(dateStr));
         
-        const totals = calculateDailyTotals(dateStr);
+        const totals = window.calculateDailyTotals(dateStr);
         if (metric === 'calories') {
             data.push(Math.round(totals.calories));
         } else if (metric === 'weight') {
-            const weightEntry = getWeightHistory().find(w => w.date === dateStr);
+            const weightEntry = window.getWeightHistory().find(w => w.date === dateStr);
             data.push(weightEntry ? weightEntry.weight : null);
         } else {
-            data.push(roundTo(totals[metric]));
+            data.push(window.roundTo(totals[metric]));
         }
     }
     
@@ -279,15 +279,15 @@ function renderStats(period = 'week', metric = 'calories') {
     // Среднее значение
     const validData = data.filter(d => d !== null);
     const avg = validData.length > 0 
-        ? roundTo(validData.reduce((a, b) => a + b, 0) / validData.length) 
+        ? window.roundTo(validData.reduce((a, b) => a + b, 0) / validData.length) 
         : 0;
     
     document.getElementById('stats-average').textContent = 
         `Среднее за период: ${avg} ${metricLabels[metric]}`;
-}
+};
 
 // Переключение страниц
-function switchPage(pageId) {
+window.switchPage = function(pageId) {
     document.querySelectorAll('.content-page').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.content-page').forEach(p => p.style.display = 'none');
     
@@ -302,10 +302,10 @@ function switchPage(pageId) {
     });
     
     if (pageId === 'diary') {
-        renderDiary();
+        window.renderDiary();
     } else if (pageId === 'stats') {
         const activePeriod = document.querySelector('.stats-tab.active')?.dataset.period || 'week';
         const activeMetric = document.querySelector('.metric-btn.active')?.dataset.metric || 'calories';
-        renderStats(activePeriod, activeMetric);
+        window.renderStats(activePeriod, activeMetric);
     }
-}
+};
