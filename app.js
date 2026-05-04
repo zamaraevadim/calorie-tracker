@@ -128,23 +128,32 @@ async function searchProducts(query) {
         p.name.toLowerCase().includes(query.toLowerCase())
     ).map(p => ({ ...p, source: 'local' }));
     
-    // Затем ищем в API
+    // Затем ищем в API (используем v1 search.pl для полнотекстового поиска)
     try {
         const response = await fetch(
-            `${API_BASE}/cgi/search.pl?search_terms=${encodeURIComponent(query)}&json=1&page=1&page_size=20&languages=ru`
+            `${API_BASE}/cgi/search.pl?search_terms=${encodeURIComponent(query)}&json=1&page=1&page_size=20`,
+            {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'User-Agent': 'NutriTrack/1.0 (contact@nutritrack.app)'
+                }
+            }
         );
         
-        if (!response.ok) throw new Error('API error');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
         
         const data = await response.json();
         const apiResults = (data.products || []).map(p => ({
             id: `off_${p.code}`,
             name: p.product_name || 'Без названия',
             brand: p.brands || '',
-            caloriesPer100g: p.nutriments?.['energy-kcal_100g'] || 0,
-            proteinPer100g: p.nutriments?.proteins_100g || 0,
-            fatPer100g: p.nutriments?.fat_100g || 0,
-            carbsPer100g: p.nutriments?.carbohydrates_100g || 0,
+            caloriesPer100g: Math.round(p.nutriments?.['energy-kcal_100g'] || 0),
+            proteinPer100g: Math.round((p.nutriments?.proteins_100g || 0) * 10) / 10,
+            fatPer100g: Math.round((p.nutriments?.fat_100g || 0) * 10) / 10,
+            carbsPer100g: Math.round((p.nutriments?.carbohydrates_100g || 0) * 10) / 10,
             barcode: p.code || '',
             source: 'openfoodfacts',
             openfoodfactsId: p.code
