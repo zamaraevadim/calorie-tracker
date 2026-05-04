@@ -6,7 +6,7 @@ const BASE_URL = 'https://world.openfoodfacts.org';
 /**
  * Поиск продуктов по названию
  */
-export async function searchProducts(query, page = 1, pageSize = 20) {
+window.searchProducts = async function(query, page = 1, pageSize = 20) {
     if (!query || query.trim() === '') {
         throw new Error('Поисковый запрос пуст');
     }
@@ -54,12 +54,12 @@ export async function searchProducts(query, page = 1, pageSize = 20) {
         console.error('Search error:', error);
         throw error;
     }
-}
+};
 
 /**
  * Получение данных о продукте по штрих-коду
  */
-export async function getProductByBarcode(barcode) {
+window.getProductByBarcode = async function(barcode) {
     const targetUrl = `${BASE_URL}/api/v2/product/${barcode}.json`;
     const proxyUrl = `${PROXY_URL}${encodeURIComponent(targetUrl)}`;
 
@@ -92,4 +92,4 @@ export async function getProductByBarcode(barcode) {
         console.error('Get product error:', error);
         throw error;
     }
-}
+};
