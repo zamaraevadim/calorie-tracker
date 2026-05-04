@@ -1,7 +1,7 @@
 // ==================== api.js - Работа с Open Food Facts API ====================
 
 const API_BASE = 'https://world.openfoodfacts.org';
-const SEARCH_DELAY_MS = 6000; // 6 секунд между поисковыми запросами
+const SEARCH_DELAY_MS = 4000; // 4 секунды между поисковыми запросами
 
 let lastSearchTime = 0;
 
@@ -19,39 +19,21 @@ async function searchProducts(query) {
     // Сначала ищем локально
     const localResults = searchLocalProducts(query).map(p => ({ ...p, source: 'local' }));
     
-    // Затем ищем в API
+    // Затем ищем в API через прокси для обхода CORS
     try {
-        const url = `${API_BASE}/cgi/search.pl?search_terms=${encodeURIComponent(query)}&json=1&page=1&page_size=20`;
+        // Используем современный API v2 с правильным User-Agent
+        const url = `${API_BASE}/api/v2/search?search_terms=${encodeURIComponent(query)}&json=true&page=1&page_size=20`;
         
-        let response;
-        try {
-            response = await fetch(url, {
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'User-Agent': 'NutriTrack/1.0'
-                },
-                mode: 'cors'
-            });
-        } catch (corsError) {
-            // Если CORS ошибка, используем прокси
-            console.log('CORS error detected, using proxy...');
-            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
-            response = await fetch(proxyUrl, {
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json'
-                }
-            });
-            
-            if (!response.ok) {
-                throw new Error(`Proxy HTTP error! status: ${response.status}`);
+        // Используем надежный CORS-прокси
+        const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+        
+        const response = await fetch(proxyUrl, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'User-Agent': 'NutriTrack-CalorieTracker/1.0 (Contact: developer@example.com)'
             }
-            
-            const proxyData = await response.json();
-            const data = JSON.parse(proxyData.contents || '{}');
-            return processApiResults(data, localResults);
-        }
+        });
         
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -61,7 +43,7 @@ async function searchProducts(query) {
         return processApiResults(data, localResults);
     } catch (error) {
         console.error('Search error:', error);
-        showToast('Ошибка поиска. Проверьте интернет.', 'error');
+        showToast('Ошибка поиска. Попробуйте позже или добавьте продукт вручную.', 'error');
         return localResults;
     }
 }

@@ -1,1 +1,1 @@
-(js/api.js, js/app.js, js/calculator.js, js/storage.js, js/ui.js)
+Nothing should be ignored since the changes only include JavaScript source files (.js) which are source code files.

@@ -135,13 +135,19 @@ async function handleSearch() {
     document.getElementById('search-loading').style.display = 'flex';
     document.getElementById('search-results').innerHTML = '';
     
-    const results = await searchProducts(query);
+    let results = [];
+    try {
+        results = await searchProducts(query);
+    } catch (error) {
+        console.error('Search failed:', error);
+        showToast('Ошибка сети. Попробуйте позже.', 'error');
+    }
     
     document.getElementById('search-loading').style.display = 'none';
     
-    if (results.length === 0) {
+    if (!results || results.length === 0) {
         document.getElementById('search-results').innerHTML = 
-            '<p class="empty-message">Продукты не найдены</p>';
+            '<p class="empty-message">Продукты не найдены. Попробуйте другой запрос или добавьте продукт вручную.</p>';
         return;
     }
     
