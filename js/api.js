@@ -1,6 +1,7 @@
 // js/api.js
 
 const BASE_URL = 'https://world.openfoodfacts.org';
+const PROXY_URL = 'https://api.allorigins.win/get?url=';
 
 /**
  * Поиск продуктов по названию
@@ -16,25 +17,29 @@ window.searchProducts = async function(query, page = 1, pageSize = 20) {
     console.log('Searching:', targetUrl);
     
     try {
-        const response = await fetch(targetUrl, {
+        // Используем прокси allorigins.win
+        const proxyUrl = PROXY_URL + encodeURIComponent(targetUrl);
+        
+        const response = await fetch(proxyUrl, {
             method: 'GET',
             headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
+                'Accept': 'application/json'
             },
-            signal: AbortSignal.timeout(20000),
-            mode: 'cors',
-            credentials: 'omit'
+            signal: AbortSignal.timeout(30000)
         });
         
         if (!response.ok) {
-            if (response.status === 0) {
-                throw new Error('Сетевая ошибка - проверьте интернет соединение');
-            }
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        const data = await response.json();
+        const proxyData = await response.json();
+        
+        // allorigins возвращает данные в поле contents как строку
+        if (!proxyData.contents) {
+            throw new Error('Неверный формат ответа от прокси');
+        }
+        
+        const data = JSON.parse(proxyData.contents);
 
         if (!data.products || data.products.length === 0) {
             return [];
@@ -65,25 +70,29 @@ window.getProductByBarcode = async function(barcode) {
     console.log('Getting product by barcode:', targetUrl);
     
     try {
-        const response = await fetch(targetUrl, {
+        // Используем прокси allorigins.win
+        const proxyUrl = PROXY_URL + encodeURIComponent(targetUrl);
+        
+        const response = await fetch(proxyUrl, {
             method: 'GET',
             headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
+                'Accept': 'application/json'
             },
-            signal: AbortSignal.timeout(20000),
-            mode: 'cors',
-            credentials: 'omit'
+            signal: AbortSignal.timeout(30000)
         });
         
         if (!response.ok) {
-            if (response.status === 0) {
-                throw new Error('Сетевая ошибка - проверьте интернет соединение');
-            }
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        const data = await response.json();
+        const proxyData = await response.json();
+        
+        // allorigins возвращает данные в поле contents как строку
+        if (!proxyData.contents) {
+            throw new Error('Неверный формат ответа от прокси');
+        }
+        
+        const data = JSON.parse(proxyData.contents);
 
         if (data.status !== 1) {
             throw new Error('Продукт не найден');
