@@ -2,10 +2,14 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>FitTrack – Фитнес-трекер</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#2563eb">
+    <meta name="description" content="Персональный трекер питания - учёт калорий и нутриентов">
+    <title>NutriTrack – Трекер питания</title>
+    <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://unpkg.com/dexie@3.2.4/dist/dexie.js"></script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -14,152 +18,235 @@
         <p>Загрузка...</p>
     </div>
 
-    <div id="login-page" class="page login-page">
-        <div class="login-container">
-            <div class="login-logo">
-                <i class="fas fa-dumbbell"></i>
-                <h1>FitTrack</h1>
-                <p>Твой персональный фитнес-трекер</p>
-            </div>
-            <button id="yandex-login-btn" class="yandex-login-btn">
-                <span class="yandex-icon">Я</span>
-                Войти через Яндекс
-            </button>
-            <p class="login-hint">Войдите, чтобы сохранять свои тренировки</p>
-        </div>
-    </div>
-
     <div id="app-page" class="page app-page" style="display: none;">
         <header class="app-header">
-            <div class="header-left">
-                <button id="menu-toggle" class="icon-btn"><i class="fas fa-bars"></i></button>
-                <h1>FitTrack</h1>
-            </div>
-            <div class="header-right">
-                <span id="cloud-sync-status" class="cloud-sync-status" title="Синхронизация с облаком"></span>
-                <button id="cloud-sync-btn" type="button" class="secondary-btn cloud-sync-btn" title="Загрузить данные из облака"><i class="fas fa-cloud-download-alt"></i></button>
-                <span id="user-name" class="user-name"></span>
-                <button id="logout-btn" class="icon-btn" title="Выйти"><i class="fas fa-sign-out-alt"></i></button>
-            </div>
+            <h1><i class="fas fa-utensils"></i> NutriTrack</h1>
+            <button id="settings-btn" class="icon-btn" title="Настройки"><i class="fas fa-cog"></i></button>
         </header>
 
-        <nav id="side-menu" class="side-menu">
-            <ul>
-                <li data-page="workout"><i class="fas fa-dumbbell"></i> Тренировка</li>
-                <li data-page="history"><i class="fas fa-history"></i> История</li>
-                <li data-page="measurements"><i class="fas fa-ruler"></i> Замеры</li>
-                <li data-page="progress"><i class="fas fa-chart-line"></i> Прогресс</li>
-                <li data-page="exercises"><i class="fas fa-list"></i> Упражнения</li>
-            </ul>
-        </nav>
-
         <main id="main-content" class="main-content">
-            <div id="workout-page" class="content-page">
-                <div class="page-header">
-                    <h2>Тренировка</h2>
-                    <div class="page-actions">
-                        <button id="copy-last-workout-btn" class="secondary-btn"><i class="fas fa-copy"></i> Повторить</button>
-                        <button id="finish-workout-btn" class="primary-btn">Завершить</button>
-                    </div>
+            <!-- ДНЕВНИК -->
+            <div id="diary-page" class="content-page active">
+                <div class="date-selector">
+                    <button id="prev-day-btn" class="icon-btn small"><i class="fas fa-chevron-left"></i></button>
+                    <span id="current-date-display" class="current-date"></span>
+                    <button id="next-day-btn" class="icon-btn small"><i class="fas fa-chevron-right"></i></button>
                 </div>
-                <div id="active-workout-info" class="active-workout-info" style="display: none;"></div>
-                <div class="add-exercise-section">
-                    <select id="exercise-select" class="exercise-select">
-                        <option value="">-- Выберите упражнение --</option>
-                    </select>
-                    <button id="add-exercise-btn" class="icon-btn"><i class="fas fa-plus"></i></button>
-                </div>
-                <div id="workout-exercises" class="workout-exercises"></div>
-                <div id="cardio-section" class="cardio-section">
-                    <h3>Кардио</h3>
-                    <div id="cardio-exercises" class="cardio-exercises"></div>
-                </div>
-            </div>
 
-            <div id="history-page" class="content-page" style="display: none;">
-                <div class="page-header"><h2>История тренировок</h2></div>
-                <div class="search-container">
-                    <input type="search" id="history-search" placeholder="Поиск по дате или упражнению...">
-                </div>
-                <div class="sort-controls">
-                    <label>Сортировка:</label>
-                    <select id="history-sort" class="form-select" style="width: auto;">
-                        <option value="date-desc">По дате (новые сначала)</option>
-                        <option value="date-asc">По дате (старые сначала)</option>
-                        <option value="exercises-desc">По количеству упражнений (много)</option>
-                        <option value="exercises-asc">По количеству упражнений (мало)</option>
-                    </select>
-                </div>
-                <div id="history-list" class="history-list"></div>
-            </div>
-
-            <div id="measurements-page" class="content-page" style="display: none;">
-                <div class="page-header">
-                    <h2>Замеры тела</h2>
-                    <button id="add-measurement-btn" class="primary-btn">Добавить замер</button>
-                </div>
-                <div id="measurements-list" class="measurements-list"></div>
-                <div id="measurement-form" class="modal" style="display: none;">
-                    <div class="modal-content">
-                        <h3>Новый замер</h3>
-                        <input type="date" id="measurement-date" class="form-input" />
-                        <div id="measurement-fields"></div>
-                        <div class="modal-actions">
-                            <button id="save-measurement-btn" class="primary-btn">Сохранить</button>
-                            <button id="cancel-measurement-btn" class="secondary-btn">Отмена</button>
+                <div class="calories-summary">
+                    <div class="circular-progress">
+                        <svg viewBox="0 0 120 120">
+                            <circle class="progress-bg" cx="60" cy="60" r="52"></circle>
+                            <circle id="calories-progress" class="progress-bar" cx="60" cy="60" r="52"></circle>
+                        </svg>
+                        <div class="progress-text">
+                            <span id="calories-consumed">0</span>
+                            <span class="progress-label">ккал</span>
+                            <span class="progress-divider">/</span>
+                            <span id="calories-goal">2200</span>
                         </div>
                     </div>
                 </div>
+
+                <div class="macros-summary">
+                    <div class="macro-item">
+                        <div class="macro-header">
+                            <span>Белки</span>
+                            <span><span id="protein-consumed">0</span> / <span id="protein-goal">150</span> г</span>
+                        </div>
+                        <div class="macro-bar"><div id="protein-bar" class="macro-fill"></div></div>
+                    </div>
+                    <div class="macro-item">
+                        <div class="macro-header">
+                            <span>Жиры</span>
+                            <span><span id="fat-consumed">0</span> / <span id="fat-goal">70</span> г</span>
+                        </div>
+                        <div class="macro-bar"><div id="fat-bar" class="macro-fill"></div></div>
+                    </div>
+                    <div class="macro-item">
+                        <div class="macro-header">
+                            <span>Углеводы</span>
+                            <span><span id="carbs-consumed">0</span> / <span id="carbs-goal">250</span> г</span>
+                        </div>
+                        <div class="macro-bar"><div id="carbs-bar" class="macro-fill"></div></div>
+                    </div>
+                </div>
+
+                <div class="meals-section">
+                    <h3>Приёмы пищи</h3>
+                    <div id="meals-list" class="meals-list"></div>
+                    <button id="add-meal-btn" class="fab-btn"><i class="fas fa-plus"></i></button>
+                </div>
             </div>
 
-            <div id="progress-page" class="content-page" style="display: none;">
-                <div class="page-header"><h2>Графики прогресса</h2></div>
-                <div class="progress-controls">
-                    <select id="progress-type-select" class="form-select">
-                        <option value="weight">Вес тела</option>
-                        <option value="measurement">Замеры</option>
-                        <option value="exercise">Упражнение</option>
-                    </select>
-                    <select id="measurement-type-select" class="form-select" style="display: none;"></select>
-                    <select id="exercise-progress-select" class="form-select" style="display: none;"></select>
+            <!-- ПРОДУКТЫ -->
+            <div id="products-page" class="content-page" style="display: none;">
+                <div class="search-section">
+                    <div class="search-box">
+                        <input type="text" id="product-search-input" placeholder="Название продукта..." />
+                        <button id="search-btn" class="primary-btn"><i class="fas fa-search"></i></button>
+                    </div>
+                    <p class="search-hint">Поиск через Open Food Facts (6 сек между запросами)</p>
                 </div>
-                <!-- Кнопки экспорта/импорта -->
-                <div style="display: flex; gap: 8px; margin-top: 16px; justify-content: center; flex-wrap: wrap;">
-                    <button id="jsonbox-key-settings-btn" type="button" class="secondary-btn" title="Свой ключ JsonBox на этом устройстве"><i class="fas fa-key"></i> Ключ JsonBox</button>
-                    <button id="export-data-btn" class="secondary-btn"><i class="fas fa-download"></i> Экспорт данных</button>
-                    <button id="import-data-btn" class="secondary-btn"><i class="fas fa-upload"></i> Импорт данных</button>
-                    <input type="file" id="import-file-input" accept=".json,application/json" style="display: none;">
+                <div id="search-loading" class="search-loading" style="display: none;">
+                    <div class="spinner small"></div>
+                    <span>Поиск продуктов...</span>
+                </div>
+                <div id="search-results" class="search-results"></div>
+            </div>
+
+            <!-- СТАТИСТИКА -->
+            <div id="stats-page" class="content-page" style="display: none;">
+                <div class="stats-tabs">
+                    <button class="stats-tab active" data-period="week">Неделя</button>
+                    <button class="stats-tab" data-period="month">Месяц</button>
+                    <button class="stats-tab" data-period="year">Год</button>
+                </div>
+                <div class="stats-metrics">
+                    <button class="metric-btn active" data-metric="calories">Калории</button>
+                    <button class="metric-btn" data-metric="weight">Вес</button>
+                    <button class="metric-btn" data-metric="protein">Белки</button>
+                    <button class="metric-btn" data-metric="fat">Жиры</button>
+                    <button class="metric-btn" data-metric="carbs">Углеводы</button>
                 </div>
                 <div class="chart-container">
-                    <canvas id="progress-chart"></canvas>
+                    <canvas id="stats-chart"></canvas>
                 </div>
+                <div id="stats-average" class="stats-average"></div>
             </div>
 
-            <div id="exercises-page" class="content-page" style="display: none;">
-                <div class="page-header">
-                    <h2>Упражнения</h2>
-                    <button id="add-custom-exercise-btn" class="primary-btn">Добавить своё</button>
+            <!-- ЕЩЁ (Импорт/Экспорт) -->
+            <div id="settings-page" class="content-page" style="display: none;">
+                <h2>Настройки</h2>
+                
+                <div class="settings-section">
+                    <h3>Дневные цели</h3>
+                    <div class="goals-form">
+                        <label>Калории (ккал):</label>
+                        <input type="number" id="goal-calories" class="form-input" value="2200" />
+                        <label>Белки (г):</label>
+                        <input type="number" id="goal-protein" class="form-input" value="150" />
+                        <label>Жиры (г):</label>
+                        <input type="number" id="goal-fat" class="form-input" value="70" />
+                        <label>Углеводы (г):</label>
+                        <input type="number" id="goal-carbs" class="form-input" value="250" />
+                        <button id="save-goals-btn" class="primary-btn">Сохранить цели</button>
+                    </div>
                 </div>
-                <p style="font-size:13px;color:#64748b;margin-bottom:12px;">Нажмите <i class="fas fa-dumbbell" style="margin:0 4px;"></i> чтобы задать реальный 1ПМ. Свои упражнения можно редактировать <i class="fas fa-pen" style="margin:0 4px;"></i> или удалять.</p>
-                <div id="exercises-list" class="exercises-list"></div>
+
+                <div class="settings-section">
+                    <h3>Данные</h3>
+                    <button id="export-data-btn" class="secondary-btn full-width"><i class="fas fa-download"></i> Экспортировать все данные</button>
+                    <button id="import-data-btn" class="secondary-btn full-width"><i class="fas fa-upload"></i> Импортировать данные</button>
+                    <input type="file" id="import-file-input" accept=".json,application/json" style="display: none;" />
+                </div>
+
+                <div class="settings-section">
+                    <h3>О приложении</h3>
+                    <p class="about-text">NutriTrack v1.0 - Персональный трекер питания</p>
+                    <p class="about-text">Все данные хранятся локально на устройстве</p>
+                </div>
             </div>
         </main>
+
+        <!-- Нижняя навигация -->
+        <nav class="bottom-nav">
+            <button class="nav-item active" data-page="diary">
+                <i class="fas fa-calendar-alt"></i>
+                <span>Дневник</span>
+            </button>
+            <button class="nav-item" data-page="products">
+                <i class="fas fa-search"></i>
+                <span>Продукты</span>
+            </button>
+            <button class="nav-item" data-page="stats">
+                <i class="fas fa-chart-line"></i>
+                <span>Статистика</span>
+            </button>
+            <button class="nav-item" data-page="settings">
+                <i class="fas fa-cog"></i>
+                <span>Ещё</span>
+            </button>
+        </nav>
     </div>
 
-    <div id="jsonbox-key-modal" class="modal jsonbox-key-modal" style="display: none;" aria-modal="true" role="dialog">
+    <!-- Модальное окно добавления продукта -->
+    <div id="add-product-modal" class="modal" style="display: none;">
         <div class="modal-content">
-            <h3>Ключ JsonBox</h3>
-            <p class="jsonbox-key-hint">У каждого пользователя свой ключ — данные пишутся в отдельное облачное хранилище. Ключ из личного кабинета <a href="https://jsonbox.ru" target="_blank" rel="noopener">jsonbox.ru</a> (один раз на это устройство).</p>
-            <label class="jsonbox-key-label" for="jsonbox-api-key-input">API-ключ</label>
-            <input type="password" id="jsonbox-api-key-input" class="form-input" autocomplete="off" placeholder="Вставьте ключ" />
+            <h3>Добавить продукт</h3>
+            <div id="modal-product-info" class="modal-product-info"></div>
+            <label>Вес порции (граммы):</label>
+            <input type="number" id="portion-grams" class="form-input" value="100" min="1" />
+            <div id="portion-nutrients" class="portion-nutrients"></div>
+            <label>Приём пищи:</label>
+            <select id="meal-type-select" class="form-select">
+                <option value="breakfast">Завтрак</option>
+                <option value="lunch">Обед</option>
+                <option value="dinner">Ужин</option>
+                <option value="snack">Перекус</option>
+            </select>
             <div class="modal-actions">
-                <button type="button" id="jsonbox-key-save-btn" class="primary-btn">Сохранить и продолжить</button>
-                <button type="button" id="jsonbox-key-cancel-btn" class="secondary-btn" style="display: none;">Отмена</button>
-                <button type="button" id="jsonbox-key-logout-btn" class="secondary-btn" style="display: none;">Выйти</button>
+                <button id="cancel-add-product-btn" class="secondary-btn">Отмена</button>
+                <button id="confirm-add-product-btn" class="primary-btn">Добавить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно выбора типа еды -->
+    <div id="add-meal-modal" class="modal" style="display: none;">
+        <div class="modal-content modal-center">
+            <h3>Добавить запись</h3>
+            <button id="add-from-products-btn" class="secondary-btn full-width"><i class="fas fa-search"></i> Найти продукт</button>
+            <button id="add-custom-food-btn" class="secondary-btn full-width"><i class="fas fa-edit"></i> Создать свой продукт</button>
+            <button id="add-weight-btn" class="secondary-btn full-width"><i class="fas fa-weight"></i> Добавить вес</button>
+            <button id="cancel-add-meal-btn" class="secondary-btn full-width">Отмена</button>
+        </div>
+    </div>
+
+    <!-- Модальное окно создания своего продукта -->
+    <div id="custom-food-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h3>Свой продукт</h3>
+            <label>Название:</label>
+            <input type="text" id="custom-name" class="form-input" placeholder="Например: Домашний борщ" />
+            <label>Бренд (необязательно):</label>
+            <input type="text" id="custom-brand" class="form-input" placeholder="Например: Моя кухня" />
+            <label>Ккал на 100г:</label>
+            <input type="number" id="custom-calories" class="form-input" step="0.1" />
+            <label>Белки на 100г (г):</label>
+            <input type="number" id="custom-protein" class="form-input" step="0.1" />
+            <label>Жиры на 100г (г):</label>
+            <input type="number" id="custom-fat" class="form-input" step="0.1" />
+            <label>Углеводы на 100г (г):</label>
+            <input type="number" id="custom-carbs" class="form-input" step="0.1" />
+            <div class="modal-actions">
+                <button id="cancel-custom-food-btn" class="secondary-btn">Отмена</button>
+                <button id="save-custom-food-btn" class="primary-btn">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно ввода веса -->
+    <div id="weight-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h3>Записать вес</h3>
+            <label>Дата:</label>
+            <input type="date" id="weight-date" class="form-input" />
+            <label>Вес (кг):</label>
+            <input type="number" id="weight-value" class="form-input" step="0.1" placeholder="Например: 75.5" />
+            <div class="modal-actions">
+                <button id="cancel-weight-btn" class="secondary-btn">Отмена</button>
+                <button id="save-weight-btn" class="primary-btn">Сохранить</button>
             </div>
         </div>
     </div>
 
     <script src="app.js"></script>
+    <script>
+        // Service Worker регистрация
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').catch(() => {});
+        }
+    </script>
 </body>
 </html>
