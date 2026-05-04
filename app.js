@@ -759,10 +759,46 @@ function setupEventListeners() {
     document.getElementById('cancel-weight-btn').addEventListener('click', hideWeightModal);
     document.getElementById('save-weight-btn').addEventListener('click', saveWeight);
     
-    // Настройки
+    // Настройки - переключатель режима
+    let goalsMode = 'macros'; // 'macros' - ввод БЖУ (калории считаются), 'calories' - ввод калорий (БЖУ подгоняются)
+    
     document.getElementById('settings-btn').addEventListener('click', () => {
         switchPage('settings');
     });
+    
+    // Переключатель режима установки целей
+    const modeToggle = document.createElement('div');
+    modeToggle.className = 'mode-toggle';
+    modeToggle.innerHTML = `
+        <label style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px; cursor: pointer;">
+            <input type="checkbox" id="goals-mode-toggle" ${goalsMode === 'calories' ? 'checked' : ''} style="width: 20px; height: 20px;" />
+            <span style="font-size: 14px;">Вводить калории (БЖУ подстроятся)</span>
+        </label>
+        <p style="font-size: 12px; color: #666; margin-top: -10px; margin-bottom: 15px;">
+            Выкл: вводите БЖУ → калории посчитаются<br>
+            Вкл: вводите калории → БЖУ подстроятся
+        </p>
+    `;
+    document.querySelector('.goals-form').insertBefore(modeToggle, document.querySelector('.goals-form label'));
+    
+    document.getElementById('goals-mode-toggle').addEventListener('change', (e) => {
+        goalsMode = e.target.checked ? 'calories' : 'macros';
+        // Скрываем/показываем поле калорий в зависимости от режима
+        const caloriesInput = document.getElementById('goal-calories').closest('div');
+        if (goalsMode === 'macros') {
+            document.getElementById('goal-calories').disabled = true;
+            document.getElementById('goal-calories').style.backgroundColor = '#f0f0f0';
+        } else {
+            document.getElementById('goal-calories').disabled = false;
+            document.getElementById('goal-calories').style.backgroundColor = '';
+        }
+    });
+    
+    // Инициализация состояния поля калорий
+    document.getElementById('goal-calories').disabled = goalsMode === 'macros';
+    if (goalsMode === 'macros') {
+        document.getElementById('goal-calories').style.backgroundColor = '#f0f0f0';
+    }
     
     document.getElementById('save-goals-btn').addEventListener('click', () => {
         let calories = parseInt(document.getElementById('goal-calories').value) || 2200;
@@ -770,24 +806,41 @@ function setupEventListeners() {
         let fat = parseInt(document.getElementById('goal-fat').value) || 70;
         let carbs = parseInt(document.getElementById('goal-carbs').value) || 250;
         
-        // Валидация: проверяем, что БЖУ не превышают общую калорийность
-        // 1г белка = 4 ккал, 1г жира = 9 ккал, 1г углеводов = 4 ккал
-        const caloriesFromMacros = (protein * 4) + (fat * 9) + (carbs * 4);
-        
-        if (caloriesFromMacros > calories) {
-            // БЖУ превышают общую калорийность - масштабируем пропорционально
-            const scale = calories / caloriesFromMacros;
-            protein = Math.round(protein * scale);
-            fat = Math.round(fat * scale);
-            carbs = Math.round(carbs * scale);
+        if (goalsMode === 'macros') {
+            // Режим 1: Пользователь ввёл БЖУ → считаем калории
+            calories = (protein * 4) + (fat * 9) + (carbs * 4);
+            showToast(`Калории рассчитаны: ${calories} ккал`, 'success');
+        } else {
+            // Режим 2: Пользователь ввёл калории → подгоняем БЖУ пропорционально
+            const currentCaloriesFromMacros = (protein * 4) + (fat * 9) + (carbs * 4);
             
-            showToast('Цели скорректированы: БЖУ превышали общую калорийность', 'warning');
-        } else if (caloriesFromMacros < calories * 0.85) {
-            // Если БЖУ составляют менее 85% от калорий - предупреждаем
-            // Это может означать, что пользователь забыл ввести что-то
-            const remainingCalories = calories - caloriesFromMacros;
-            if (remainingCalories > 300) {
-                showToast(`Внимание: ${remainingCalories} ккал не распределены между БЖУ`, 'warning');
+            if (currentCaloriesFromMacros > 0 && currentCaloriesFromMacros !== calories) {
+                const scale = calories / currentCaloriesFromMacros;
+                protein = Math.round(protein * scale);
+                fat = Math.round(fat * scale);
+                carbs = Math.round(carbs * scale);
+                
+                // Обновляем значения в полях ввода
+                document.getElementById('goal-protein').value = protein;
+                document.getElementById('goal-fat').value = fat;
+                document.getElementById('goal-carbs').value = carbs;
+                
+                showToast('БЖУ скорректированы под заданную калорийность', 'success');
+            } else if (currentCaloriesFromMacros === 0) {
+                // Если БЖУ не введены, распределяем калории классически (30/30/40)
+                const proteinCalories = calories * 0.3;
+                const fatCalories = calories * 0.3;
+                const carbsCalories = calories * 0.4;
+                
+                protein = Math.round(proteinCalories / 4);
+                fat = Math.round(fatCalories / 9);
+                carbs = Math.round(carbsCalories / 4);
+                
+                document.getElementById('goal-protein').value = protein;
+                document.getElementById('goal-fat').value = fat;
+                document.getElementById('goal-carbs').value = carbs;
+                
+                showToast('БЖУ распределены (30/30/40)', 'success');
             }
         }
         
@@ -797,7 +850,6 @@ function setupEventListeners() {
         settings.dailyGoals.carbs = carbs;
         
         saveLocalData();
-        showToast('Цели сохранены', 'success');
         renderDiary();
     });
     
