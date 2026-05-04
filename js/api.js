@@ -10,14 +10,12 @@ window.searchProducts = async function(query, page = 1, pageSize = 20) {
         throw new Error('Поисковый запрос пуст');
     }
 
-    // Используем современный API v2 с правильными параметрами
     const encodedQuery = encodeURIComponent(query.trim());
     const targetUrl = `${BASE_URL}/cgi/search.pl?search_terms=${encodedQuery}&json=true&page=${page}&page_size=${pageSize}`;
     
     console.log('Searching:', targetUrl);
     
     try {
-        // Пробуем прямой запрос сначала (OFF теперь поддерживает CORS)
         const response = await fetch(targetUrl, {
             method: 'GET',
             headers: {
@@ -27,6 +25,9 @@ window.searchProducts = async function(query, page = 1, pageSize = 20) {
         });
         
         if (!response.ok) {
+            if (response.status === 0) {
+                throw new Error('Сетевая ошибка. Проверьте подключение к интернету.');
+            }
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
@@ -47,83 +48,10 @@ window.searchProducts = async function(query, page = 1, pageSize = 20) {
         }));
         
     } catch (error) {
-        console.warn('Direct request failed, trying proxy:', error.message);
-        
-        // Если прямой запрос не удался, пробуем прокси
-        return searchViaProxy(query, page, pageSize);
+        console.error('Search error:', error);
+        throw error;
     }
 };
-
-/**
- * Поиск через прокси (резервный вариант)
- */
-async function searchViaProxy(query, page, pageSize) {
-    const PROXY_URLS = [
-        'https://api.allorigins.win/get?url=',
-        'https://corsproxy.io/?',
-        'https://thingproxy.freeboard.io/fetch/'
-    ];
-    
-    const encodedQuery = encodeURIComponent(query.trim());
-    const targetUrl = `${BASE_URL}/cgi/search.pl?search_terms=${encodedQuery}&json=true&page=${page}&page_size=${pageSize}`;
-    
-    let lastError = null;
-    
-    for (const proxyBase of PROXY_URLS) {
-        const proxyUrl = `${proxyBase}${encodeURIComponent(targetUrl)}`;
-        
-        console.log('Trying proxy:', proxyUrl);
-        
-        try {
-            const response = await fetch(proxyUrl, {
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json'
-                },
-                signal: AbortSignal.timeout(10000)
-            });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            let data;
-            
-            // allorigins возвращает данные в поле "contents" как строку
-            if (proxyBase.includes('allorigins')) {
-                const rawData = await response.json();
-                if (!rawData.contents) {
-                    throw new Error('Пустой ответ от прокси');
-                }
-                data = JSON.parse(rawData.contents);
-            } else {
-                data = await response.json();
-            }
-
-            if (!data.products || data.products.length === 0) {
-                return [];
-            }
-
-            return data.products.map(product => ({
-                id: product.code,
-                name: product.product_name || 'Без названия',
-                brand: product.brands || '',
-                image: product.image_small_url || product.image_front_small_url || null,
-                nutriments: product.nutriments || {},
-                nutriscore: product.nutriscore_grade || null,
-                novaGroup: product.nova_group || null
-            }));
-            
-        } catch (error) {
-            console.warn(`Proxy ${proxyBase} failed:`, error.message);
-            lastError = error;
-            continue;
-        }
-    }
-    
-    console.error('All proxies failed');
-    throw lastError || new Error('Не удалось выполнить поиск');
-}
 
 /**
  * Получение данных о продукте по штрих-коду
