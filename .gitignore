@@ -1,1 +1,1 @@
-Nothing should be ignored in this case, as the changes only include source files (manifest.json, sw.js, app.js, index.html, style.css) without any build artifacts, dependencies, or temporary files.
+Nothing should be ignored based on the provided file changes. The only modified file is `app.js`, which is a source code file and should not be added to .gitignore.
