@@ -1,73 +1,127 @@
-// ==================== api.js - Работа с Open Food Facts API ====================
+// api.js - Работа с Open Food Facts API
 
-const API_BASE = 'https://world.openfoodfacts.org';
-const SEARCH_DELAY_MS = 4000; // 4 секунды между поисковыми запросами
+const OFF_API_BASE = 'https://world.openfoodfacts.org';
+// Используем надежный прокси только если прямой запрос не сработает
+const PROXY_BASE = 'https://corsproxy.io/?'; 
 
-let lastSearchTime = 0;
+/**
+ * Поиск продуктов по названию
+ * @param {string} query - Поисковый запрос
+ * @param {number} page - Номер страницы
+ * @returns {Promise<Array>} - Массив продуктов
+ */
+async function searchProducts(query, page = 1) {
+    const pageSize = 20;
+    // Кодируем запрос для URL
+    const encodedQuery = encodeURIComponent(query);
+    
+    // Используем современный API v2 вместо старого cgi/search.pl
+    const url = `${OFF_API_BASE}/api/v2/search?search_terms=${encodedQuery}&json=true&page=${page}&page_size=${pageSize}`;
+    
+    console.log(`Searching for: ${query} at ${url}`);
 
-// Поиск продуктов
-async function searchProducts(query) {
-    const now = Date.now();
-    if (now - lastSearchTime < SEARCH_DELAY_MS) {
-        const waitTime = Math.ceil((SEARCH_DELAY_MS - (now - lastSearchTime)) / 1000);
-        showToast(`Подождите ${waitTime} сек перед следующим поиском`, 'warning');
-        return [];
-    }
-    
-    lastSearchTime = now;
-    
-    // Сначала ищем локально
-    const localResults = searchLocalProducts(query).map(p => ({ ...p, source: 'local' }));
-    
-    // Затем ищем в API через прокси для обхода CORS
     try {
-        // Используем современный API v2 с правильным User-Agent
-        const url = `${API_BASE}/api/v2/search?search_terms=${encodeURIComponent(query)}&json=true&page=1&page_size=20`;
-        
-        // Используем надежный CORS-прокси
-        const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
-        
-        const response = await fetch(proxyUrl, {
+        // Попытка прямого запроса с правильным User-Agent (хотя браузеры его часто игнорируют для CORS)
+        const response = await fetch(url, {
             method: 'GET',
             headers: {
-                'Accept': 'application/json',
-                'User-Agent': 'NutriTrack-CalorieTracker/1.0 (Contact: developer@example.com)'
+                'Accept': 'application/json'
+                // User-Agent нельзя установить вручную в браузере из соображений безопасности
             }
         });
-        
+
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
+
         const data = await response.json();
-        return processApiResults(data, localResults);
+        return processSearchResults(data);
+
     } catch (error) {
-        console.error('Search error:', error);
-        showToast('Ошибка поиска. Попробуйте позже или добавьте продукт вручную.', 'error');
-        return localResults;
+        console.warn(`Direct request failed: ${error.message}. Trying proxy...`);
+        
+        // Если прямой запрос не удался (CORS или сеть), пробуем через прокси
+        try {
+            const proxyUrl = `${PROXY_BASE}${encodeURIComponent(url)}`;
+            const proxyResponse = await fetch(proxyUrl);
+            
+            if (!proxyResponse.ok) {
+                throw new Error(`Proxy HTTP error! status: ${proxyResponse.status}`);
+            }
+
+            const proxyData = await proxyResponse.json();
+            // Прокси может вернуть объект с полем contents, если это текст, но здесь мы ждем JSON
+            // corsproxy.io обычно возвращает чистый ответ, но проверим структуру
+            const jsonData = proxyData.contents ? JSON.parse(proxyData.contents) : proxyData;
+            
+            return processSearchResults(jsonData);
+
+        } catch (proxyError) {
+            console.error('Search failed via proxy too:', proxyError);
+            throw new Error('Не удалось выполнить поиск. Проверьте соединение или попробуйте позже.');
+        }
     }
 }
 
-// Обработка результатов API
-function processApiResults(data, localResults) {
-    const apiResults = (data.products || []).map(p => ({
-        id: `off_${p.code}`,
-        name: p.product_name || 'Без названия',
-        brand: p.brands || '',
-        caloriesPer100g: Math.round(p.nutriments?.['energy-kcal_100g'] || 0),
-        proteinPer100g: Math.round((p.nutriments?.proteins_100g || 0) * 10) / 10,
-        fatPer100g: Math.round((p.nutriments?.fat_100g || 0) * 10) / 10,
-        carbsPer100g: Math.round((p.nutriments?.carbohydrates_100g || 0) * 10) / 10,
-        barcode: p.code || '',
-        source: 'openfoodfacts',
-        openfoodfactsId: p.code
-    })).filter(p => p.caloriesPer100g > 0);
-    
-    // Сохраняем новые продукты в кэш
-    for (const product of apiResults) {
-        addLocalProduct(product);
+/**
+ * Обработка данных поиска
+ * @param {Object} data - Сырые данные от API
+ * @returns {Array} - Массив продуктов
+ */
+function processSearchResults(data) {
+    if (!data || !data.products) {
+        console.warn('No products found in response');
+        return [];
     }
     
-    // Объединяем результаты
-    return [...localResults, ...apiResults.filter(p => !localResults.some(l => l.barcode === p.barcode))];
+    // Фильтруем продукты, у которых есть хотя бы название
+    return data.products.filter(product => product.product_name).map(product => ({
+        id: product.code,
+        name: product.product_name,
+        brand: product.brands || 'Неизвестный бренд',
+        image: product.image_front_url || product.image_small_url || null,
+        nutriscore: product.nutriscore_grade ? product.nutriscore_grade.toUpperCase() : null,
+        nova: product.nova_group,
+        // Сохраняем полные данные нутриентов для последующего использования
+        nutriments: product.nutriments || {}
+    }));
 }
+
+/**
+ * Получение детальной информации о продукте по штрих-коду
+ * @param {string} barcode - Штрих-код продукта
+ * @returns {Promise<Object>} - Данные продукта
+ */
+async function getProductByBarcode(barcode) {
+    const url = `${OFF_API_BASE}/api/v2/product/${barcode}.json`;
+    
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`Product not found or error: ${response.status}`);
+        }
+        const data = await response.json();
+        
+        if (data.status !== 1) {
+            throw new Error('Product not found in database');
+        }
+        
+        const product = data.product;
+        return {
+            id: product.code,
+            name: product.product_name,
+            brand: product.brands || 'Неизвестный бренд',
+            image: product.image_front_url || null,
+            nutriscore: product.nutriscore_grade ? product.nutriscore_grade.toUpperCase() : null,
+            nova: product.nova_group,
+            ingredients_text: product.ingredients_text,
+            nutriments: product.nutriments || {},
+            categories: product.categories_tags || []
+        };
+    } catch (error) {
+        console.error('Error fetching product details:', error);
+        throw error;
+    }
+}
+
+export { searchProducts, getProductByBarcode };
