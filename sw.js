@@ -1,8 +1,12 @@
-const CACHE_NAME = 'nutritrack-v1';
+const CACHE_NAME = 'kbju-tracker-v1';
 const ASSETS = [
   '/',
   '/index.html',
-  '/app.js',
+  '/js/storage.js',
+  '/js/calculator.js',
+  '/js/api.js',
+  '/js/ui.js',
+  '/js/app.js',
   '/style.css',
   '/manifest.json'
 ];
