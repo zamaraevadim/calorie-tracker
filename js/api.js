@@ -13,20 +13,22 @@ async function searchProducts(query) {
         showToast(`Подождите ${waitTime} сек перед следующим поиском`, 'warning');
         return [];
     }
-    
+
     lastSearchTime = now;
-    
+
     // Сначала ищем локально
     const localResults = searchLocalProducts(query).map(p => ({ ...p, source: 'local' }));
-    
+
     // Затем ищем в API через прокси для обхода CORS
     try {
-        // Используем современный API v2 с правильным User-Agent
-        const url = `${API_BASE}/api/v2/search?search_terms=${encodeURIComponent(query)}&json=true&page=1&page_size=20`;
-        
-        // Используем надежный CORS-прокси
-        const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
-        
+        // Используем старый надежный эндпоинт search.pl
+        const url = `${API_BASE}/cgi/search.pl?search_terms=${encodeURIComponent(query)}&json=true&page=1&page_size=20`;
+
+        // Используем прокси thingproxy
+        const proxyUrl = `https://thingproxy.freeboard.io/fetch/${encodeURIComponent(url)}`;
+
+        console.log('Запрос к API через прокси:', proxyUrl);
+
         const response = await fetch(proxyUrl, {
             method: 'GET',
             headers: {
@@ -34,11 +36,11 @@ async function searchProducts(query) {
                 'User-Agent': 'NutriTrack-CalorieTracker/1.0 (Contact: developer@example.com)'
             }
         });
-        
+
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
+
         const data = await response.json();
         return processApiResults(data, localResults);
     } catch (error) {
@@ -62,12 +64,12 @@ function processApiResults(data, localResults) {
         source: 'openfoodfacts',
         openfoodfactsId: p.code
     })).filter(p => p.caloriesPer100g > 0);
-    
+
     // Сохраняем новые продукты в кэш
     for (const product of apiResults) {
         addLocalProduct(product);
     }
-    
+
     // Объединяем результаты
     return [...localResults, ...apiResults.filter(p => !localResults.some(l => l.barcode === p.barcode))];
 }
