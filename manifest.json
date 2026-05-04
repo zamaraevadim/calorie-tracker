@@ -1,6 +1,6 @@
 {
-  "name": "NutriTrack - Трекер питания",
-  "short_name": "NutriTrack",
+  "name": "Счётчик КБЖУ - Трекер питания",
+  "short_name": "КБЖУ Трекер",
   "description": "Персональный трекер питания - учёт калорий и нутриентов",
   "start_url": "/",
   "display": "standalone",
