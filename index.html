@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>FitTrack – Фитнес-трекер</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="loading-screen" class="loading-screen">
+        <div class="spinner"></div>
+        <p>Загрузка...</p>
+    </div>
+
+    <div id="login-page" class="page login-page">
+        <div class="login-container">
+            <div class="login-logo">
+                <i class="fas fa-dumbbell"></i>
+                <h1>FitTrack</h1>
+                <p>Твой персональный фитнес-трекер</p>
+            </div>
+            <button id="yandex-login-btn" class="yandex-login-btn">
+                <span class="yandex-icon">Я</span>
+                Войти через Яндекс
+            </button>
+            <p class="login-hint">Войдите, чтобы сохранять свои тренировки</p>
+        </div>
+    </div>
+
+    <div id="app-page" class="page app-page" style="display: none;">
+        <header class="app-header">
+            <div class="header-left">
+                <button id="menu-toggle" class="icon-btn"><i class="fas fa-bars"></i></button>
+                <h1>FitTrack</h1>
+            </div>
+            <div class="header-right">
+                <span id="cloud-sync-status" class="cloud-sync-status" title="Синхронизация с облаком"></span>
+                <button id="cloud-sync-btn" type="button" class="secondary-btn cloud-sync-btn" title="Загрузить данные из облака"><i class="fas fa-cloud-download-alt"></i></button>
+                <span id="user-name" class="user-name"></span>
+                <button id="logout-btn" class="icon-btn" title="Выйти"><i class="fas fa-sign-out-alt"></i></button>
+            </div>
+        </header>
+
+        <nav id="side-menu" class="side-menu">
+            <ul>
+                <li data-page="workout"><i class="fas fa-dumbbell"></i> Тренировка</li>
+                <li data-page="history"><i class="fas fa-history"></i> История</li>
+                <li data-page="measurements"><i class="fas fa-ruler"></i> Замеры</li>
+                <li data-page="progress"><i class="fas fa-chart-line"></i> Прогресс</li>
+                <li data-page="exercises"><i class="fas fa-list"></i> Упражнения</li>
+            </ul>
+        </nav>
+
+        <main id="main-content" class="main-content">
+            <div id="workout-page" class="content-page">
+                <div class="page-header">
+                    <h2>Тренировка</h2>
+                    <div class="page-actions">
+                        <button id="copy-last-workout-btn" class="secondary-btn"><i class="fas fa-copy"></i> Повторить</button>
+                        <button id="finish-workout-btn" class="primary-btn">Завершить</button>
+                    </div>
+                </div>
+                <div id="active-workout-info" class="active-workout-info" style="display: none;"></div>
+                <div class="add-exercise-section">
+                    <select id="exercise-select" class="exercise-select">
+                        <option value="">-- Выберите упражнение --</option>
+                    </select>
+                    <button id="add-exercise-btn" class="icon-btn"><i class="fas fa-plus"></i></button>
+                </div>
+                <div id="workout-exercises" class="workout-exercises"></div>
+                <div id="cardio-section" class="cardio-section">
+                    <h3>Кардио</h3>
+                    <div id="cardio-exercises" class="cardio-exercises"></div>
+                </div>
+            </div>
+
+            <div id="history-page" class="content-page" style="display: none;">
+                <div class="page-header"><h2>История тренировок</h2></div>
+                <div class="search-container">
+                    <input type="search" id="history-search" placeholder="Поиск по дате или упражнению...">
+                </div>
+                <div class="sort-controls">
+                    <label>Сортировка:</label>
+                    <select id="history-sort" class="form-select" style="width: auto;">
+                        <option value="date-desc">По дате (новые сначала)</option>
+                        <option value="date-asc">По дате (старые сначала)</option>
+                        <option value="exercises-desc">По количеству упражнений (много)</option>
+                        <option value="exercises-asc">По количеству упражнений (мало)</option>
+                    </select>
+                </div>
+                <div id="history-list" class="history-list"></div>
+            </div>
+
+            <div id="measurements-page" class="content-page" style="display: none;">
+                <div class="page-header">
+                    <h2>Замеры тела</h2>
+                    <button id="add-measurement-btn" class="primary-btn">Добавить замер</button>
+                </div>
+                <div id="measurements-list" class="measurements-list"></div>
+                <div id="measurement-form" class="modal" style="display: none;">
+                    <div class="modal-content">
+                        <h3>Новый замер</h3>
+                        <input type="date" id="measurement-date" class="form-input" />
+                        <div id="measurement-fields"></div>
+                        <div class="modal-actions">
+                            <button id="save-measurement-btn" class="primary-btn">Сохранить</button>
+                            <button id="cancel-measurement-btn" class="secondary-btn">Отмена</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="progress-page" class="content-page" style="display: none;">
+                <div class="page-header"><h2>Графики прогресса</h2></div>
+                <div class="progress-controls">
+                    <select id="progress-type-select" class="form-select">
+                        <option value="weight">Вес тела</option>
+                        <option value="measurement">Замеры</option>
+                        <option value="exercise">Упражнение</option>
+                    </select>
+                    <select id="measurement-type-select" class="form-select" style="display: none;"></select>
+                    <select id="exercise-progress-select" class="form-select" style="display: none;"></select>
+                </div>
+                <!-- Кнопки экспорта/импорта -->
+                <div style="display: flex; gap: 8px; margin-top: 16px; justify-content: center; flex-wrap: wrap;">
+                    <button id="jsonbox-key-settings-btn" type="button" class="secondary-btn" title="Свой ключ JsonBox на этом устройстве"><i class="fas fa-key"></i> Ключ JsonBox</button>
+                    <button id="export-data-btn" class="secondary-btn"><i class="fas fa-download"></i> Экспорт данных</button>
+                    <button id="import-data-btn" class="secondary-btn"><i class="fas fa-upload"></i> Импорт данных</button>
+                    <input type="file" id="import-file-input" accept=".json,application/json" style="display: none;">
+                </div>
+                <div class="chart-container">
+                    <canvas id="progress-chart"></canvas>
+                </div>
+            </div>
+
+            <div id="exercises-page" class="content-page" style="display: none;">
+                <div class="page-header">
+                    <h2>Упражнения</h2>
+                    <button id="add-custom-exercise-btn" class="primary-btn">Добавить своё</button>
+                </div>
+                <p style="font-size:13px;color:#64748b;margin-bottom:12px;">Нажмите <i class="fas fa-dumbbell" style="margin:0 4px;"></i> чтобы задать реальный 1ПМ. Свои упражнения можно редактировать <i class="fas fa-pen" style="margin:0 4px;"></i> или удалять.</p>
+                <div id="exercises-list" class="exercises-list"></div>
+            </div>
+        </main>
+    </div>
+
+    <div id="jsonbox-key-modal" class="modal jsonbox-key-modal" style="display: none;" aria-modal="true" role="dialog">
+        <div class="modal-content">
+            <h3>Ключ JsonBox</h3>
+            <p class="jsonbox-key-hint">У каждого пользователя свой ключ — данные пишутся в отдельное облачное хранилище. Ключ из личного кабинета <a href="https://jsonbox.ru" target="_blank" rel="noopener">jsonbox.ru</a> (один раз на это устройство).</p>
+            <label class="jsonbox-key-label" for="jsonbox-api-key-input">API-ключ</label>
+            <input type="password" id="jsonbox-api-key-input" class="form-input" autocomplete="off" placeholder="Вставьте ключ" />
+            <div class="modal-actions">
+                <button type="button" id="jsonbox-key-save-btn" class="primary-btn">Сохранить и продолжить</button>
+                <button type="button" id="jsonbox-key-cancel-btn" class="secondary-btn" style="display: none;">Отмена</button>
+                <button type="button" id="jsonbox-key-logout-btn" class="secondary-btn" style="display: none;">Выйти</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
